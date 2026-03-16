@@ -1,104 +1,86 @@
 # go-http-monitor
 
-A self-contained HTTP URL monitoring service with a REST API, embedded web UI, and time-series analytics. Ships as a single binary.
+> Because refreshing a browser tab and whispering "please be up" is not a monitoring strategy.
 
-## Features
+A single-binary URL monitoring service that watches your websites so you don't have to. It pings your URLs, remembers everything in a time-series database, draws pretty charts, and screams at you on Slack or email when things go sideways.
 
-- **URL Monitoring** — Configure monitors with expected status code, body string match, custom User-Agent, and check interval
-- **Background Workers** — Per-monitor goroutines check URLs on schedule with graceful shutdown
-- **Notifications** — Email (SMTP) and Slack webhook alerts on state transitions only (no flood)
-  - OK → Fail: sends alert
-  - Fail → Fail: silent
-  - Fail → OK: sends recovery
-- **Time-Series Analytics** — FrostDB columnar storage for response time, uptime, and status code distribution
-- **Charts** — ECharts dashboard with response time, health status, and HTTP status code trends
-- **JWT Authentication** — Public login endpoint, all other routes protected
-- **Dark/Light Theme** — Persisted to localStorage, defaults to OS preference
-- **Housekeeper** — Automatic purge of old SQLite check results on configurable schedule
-- **Single Binary** — Vue.js frontend embedded via `go:embed`, no separate web server needed
+One binary. No Docker required. No Kubernetes. No "let me just spin up 14 microservices." Just run it.
 
-## Quick Start
+## What it does
+
+- **Watches your URLs** and checks status codes, response times, and whether a specific string is in the response body
+- **Sends you alerts** via Email or Slack -- but only when something actually *changes* (no 3am notification floods because a server is still down)
+- **Draws charts** so you can pretend to understand what P95 means in your next standup
+- **Cleans up after itself** with a built-in housekeeper that purges old data so your disk doesn't fill up in 2027
+- **Looks good doing it** with a dark/light theme that respects your OS preference
+
+## Getting started
 
 ```bash
-# Build
 make build
 
-# Run
-JWT_SECRET=your-secret ADMIN_PASSWORD=your-pass ./bin/go-http-monitor
-
-# Open http://localhost:8080
+JWT_SECRET=something-secret ADMIN_PASSWORD=not-password123 ./bin/go-http-monitor
 ```
+
+Open `http://localhost:8080`, log in, add a URL, and go grab a coffee. It's monitoring now.
+
+## The dashboard
+
+The monitor detail page gives you:
+
+- **Uptime percentage** -- the number you paste into the SLA spreadsheet
+- **Response time chart** -- a pretty line that hopefully stays flat and low
+- **Health status bars** -- green means good, red means someone's getting paged
+- **HTTP status code trends** -- see exactly when your API started returning 500s
+
+All powered by [FrostDB](https://github.com/polarsignals/frostdb), a columnar time-series database. Because storing metrics in a regular SQL table is like using a spreadsheet as a database -- it works until it doesn't.
+
+## Notifications that don't suck
+
+Most monitors spam you with "DOWN DOWN DOWN DOWN" every 60 seconds. This one doesn't.
+
+| What happens | What you get |
+|---|---|
+| Site goes down | One alert |
+| Site is still down | Nothing (you already know) |
+| Site comes back | One recovery message |
+| Site is still up | Nothing (as it should be) |
+
+Set up as many notification channels per monitor as you want -- mix email and Slack, send to different channels, whatever. Configure it all through the UI or API.
 
 ## Configuration
 
-All configuration is via environment variables:
+Everything is an environment variable. No YAML files were harmed in the making of this project.
 
-| Variable | Default | Description |
+| Variable | Default | What it does |
 |----------|---------|-------------|
-| `PORT` | `8080` | HTTP server port |
-| `DB_PATH` | `./monitor.db` | SQLite database path |
-| `TSDB_PATH` | `./tsdb-data` | FrostDB storage directory |
-| `JWT_SECRET` | *(required)* | HMAC signing key for JWT tokens |
-| `ADMIN_PASSWORD` | *(required)* | Admin user password |
-| `ADMIN_USERNAME` | `admin` | Admin username |
-| `JWT_TOKEN_TTL_HOURS` | `24` | JWT token expiry in hours |
-| `HTTP_CLIENT_TIMEOUT` | `30` | HTTP client timeout in seconds |
-| `HOUSEKEEP_INTERVAL_MIN` | `60` | Housekeeper run interval in minutes |
-| `HOUSEKEEP_RETENTION_DAYS` | `30` | Keep SQLite check results for N days |
-| `SMTP_HOST` | *(empty)* | SMTP server (empty = email disabled) |
+| `PORT` | `8080` | Where the web UI lives |
+| `DB_PATH` | `./monitor.db` | SQLite file for monitors and history |
+| `TSDB_PATH` | `./tsdb-data` | FrostDB directory for time-series data |
+| `JWT_SECRET` | *(you must set this)* | Secret for auth tokens |
+| `ADMIN_PASSWORD` | *(you must set this)* | Your login password |
+| `ADMIN_USERNAME` | `admin` | Your login username |
+| `HOUSEKEEP_INTERVAL_MIN` | `60` | How often to clean old data (minutes) |
+| `HOUSEKEEP_RETENTION_DAYS` | `30` | How long to keep check history |
+| `SMTP_HOST` | *(empty = no email)* | SMTP server for email alerts |
 | `SMTP_PORT` | `587` | SMTP port |
-| `SMTP_FROM` | *(empty)* | Sender email address |
-| `SMTP_USERNAME` | *(empty)* | SMTP auth username |
-| `SMTP_PASSWORD` | *(empty)* | SMTP auth password |
+| `SMTP_FROM` | | Sender address |
+| `SMTP_USERNAME` | | SMTP login |
+| `SMTP_PASSWORD` | | SMTP password |
+| `HTTP_CLIENT_TIMEOUT` | `30` | Seconds before giving up on a check |
+| `JWT_TOKEN_TTL_HOURS` | `24` | How long login sessions last |
 
-## API Endpoints
+## API
 
-### Authentication
-| Method | Path | Description |
-|--------|------|-------------|
-| POST | `/api/auth/login` | Login, returns JWT token |
-
-### Monitors
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/api/monitors` | List all monitors |
-| POST | `/api/monitors` | Create a monitor |
-| GET | `/api/monitors/{id}` | Get monitor details |
-| PUT | `/api/monitors/{id}` | Update a monitor |
-| DELETE | `/api/monitors/{id}` | Delete a monitor |
-
-### Check Results
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/api/monitors/{id}/status` | Latest check result |
-| GET | `/api/monitors/{id}/history` | Paginated history (`?limit=20&offset=0`) |
-
-### Notifications
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/api/monitors/{id}/notifications` | List notifications for a monitor |
-| POST | `/api/monitors/{id}/notifications` | Create notification (email or slack) |
-| GET | `/api/notifications/{nid}` | Get notification details |
-| PUT | `/api/notifications/{nid}` | Update notification |
-| DELETE | `/api/notifications/{nid}` | Delete notification |
-
-### Analytics (FrostDB)
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/api/monitors/{id}/stats` | Summary stats (`?period=1h\|6h\|24h\|7d\|30d`) |
-| GET | `/api/monitors/{id}/timeline` | Time-series buckets (`?period=1h&buckets=60`) |
-| GET | `/api/monitors/{id}/status-codes` | Status code distribution |
-| GET | `/api/monitors/{id}/status-code-timeline` | Status codes over time |
-
-## API Examples
+Full REST API behind JWT auth. Login at `POST /api/auth/login`, then use the token as `Authorization: Bearer <token>`.
 
 ```bash
-# Login
+# Get a token
 TOKEN=$(curl -s -X POST http://localhost:8080/api/auth/login \
   -H 'Content-Type: application/json' \
   -d '{"username":"admin","password":"yourpass"}' | jq -r '.data.token')
 
-# Create monitor
+# Add a monitor
 curl -X POST http://localhost:8080/api/monitors \
   -H "Authorization: Bearer $TOKEN" \
   -H 'Content-Type: application/json' \
@@ -110,116 +92,77 @@ curl -X POST http://localhost:8080/api/monitors \
     "user_agent": "MyBot/1.0"
   }'
 
-# Add Slack notification
+# Add a Slack alert
 curl -X POST http://localhost:8080/api/monitors/1/notifications \
   -H "Authorization: Bearer $TOKEN" \
   -H 'Content-Type: application/json' \
-  -d '{
-    "type": "slack",
-    "target": "https://hooks.slack.com/services/T.../B.../xxx",
-    "enabled": true
-  }'
+  -d '{"type":"slack","target":"https://hooks.slack.com/services/...","enabled":true}'
 
-# Get stats
+# Check the stats
 curl http://localhost:8080/api/monitors/1/stats?period=24h \
   -H "Authorization: Bearer $TOKEN"
 ```
 
-## Architecture
+**Endpoints at a glance:**
 
-```
-domain/          Domain types, validation, errors
-config/          Environment-based configuration
-database/        SQLite connection, migrations
-auth/            JWT authentication (service, handler, middleware)
-monitor/         Monitor CRUD (repository, service, handler, routes)
-result/          Check result storage and history API
-notification/    Notification config CRUD (email, slack)
-notifier/        Alert dispatcher with state-transition detection
-checker/         HTTP checker, per-monitor workers, scheduler
-tsdb/            FrostDB time-series storage
-stats/           Analytics service and API (summary, timeline, status codes)
-housekeeper/     Periodic SQLite cleanup
-response/        JSON response helpers
-frontend/        Vue 3 + Tailwind + ECharts SPA
-```
+| What | Endpoint |
+|------|----------|
+| Login | `POST /api/auth/login` |
+| Monitors CRUD | `GET/POST /api/monitors`, `GET/PUT/DELETE /api/monitors/{id}` |
+| Latest check | `GET /api/monitors/{id}/status` |
+| Check history | `GET /api/monitors/{id}/history?limit=20&offset=0` |
+| Notifications | `GET/POST /api/monitors/{id}/notifications`, `GET/PUT/DELETE /api/notifications/{nid}` |
+| Stats summary | `GET /api/monitors/{id}/stats?period=24h` |
+| Timeline | `GET /api/monitors/{id}/timeline?period=1h&buckets=60` |
+| Status codes | `GET /api/monitors/{id}/status-codes?period=24h` |
+| Status code timeline | `GET /api/monitors/{id}/status-code-timeline?period=1h&buckets=60` |
 
-**Storage:**
-- **SQLite** — Monitors, notifications, check result history (CRUD)
-- **FrostDB** — Columnar time-series for analytics (response time, uptime, status codes)
+## Installing on a server
 
-## Installation
-
-### From Release (deb/rpm)
+### The easy way (deb/rpm)
 
 ```bash
-# Download from GitHub Releases
 sudo dpkg -i go-http-monitor_1.0.0_amd64.deb
-
-# Configure
-sudo vim /etc/go-http-monitor/env
-
-# Start
+sudo vim /etc/go-http-monitor/env    # set JWT_SECRET and ADMIN_PASSWORD
 sudo systemctl start go-http-monitor
-sudo systemctl status go-http-monitor
+```
 
-# Logs
+It creates a systemd service, a dedicated user, and a config file. Like a proper grown-up application.
+
+### The from-source way
+
+```bash
+make build
+sudo make install
+sudo vim /etc/go-http-monitor/env
+sudo systemctl start go-http-monitor
+```
+
+### Check the logs
+
+```bash
 journalctl -u go-http-monitor -f
-```
-
-### From Source
-
-```bash
-make build                    # Build frontend + backend
-sudo make install             # Install binary + systemd service
-sudo vim /etc/go-http-monitor/env
-sudo systemctl start go-http-monitor
-```
-
-### Uninstall
-
-```bash
-sudo make uninstall
 ```
 
 ## Development
 
 ```bash
-# Full build (frontend + backend)
-make build
-
-# Dev mode (Go backend + Vite HMR)
-make dev
-
-# Run tests
-make test
-
-# Run linter
-make lint
+make build    # Build everything
+make dev      # Go backend + Vite HMR (hot reload for frontend)
+make test     # Run tests
+make lint     # Run go vet
+make clean    # Nuke build artifacts
 ```
 
-## Makefile Targets
+## How it's built
 
-| Target | Description |
-|--------|-------------|
-| `make build` | Build frontend + Go binary into `bin/` |
-| `make frontend` | Build Vue SPA only |
-| `make backend` | Compile Go binary only |
-| `make run` | Build and run |
-| `make dev` | Dev mode with HMR |
-| `make test` | Run Go tests |
-| `make lint` | Run go vet |
-| `make install` | Install binary + systemd service |
-| `make uninstall` | Remove service + binary |
-| `make clean` | Remove all build artifacts |
-
-## Tech Stack
-
-- **Backend:** Go, SQLite (modernc.org/sqlite), FrostDB, JWT (golang-jwt)
-- **Frontend:** Vue 3, Pinia, Vue Router, Tailwind CSS, ECharts
-- **Build:** Vite, go:embed, nFPM (deb/rpm packaging)
-- **CI:** GitHub Actions (build + release on tag)
+- **Go** -- because it compiles to a single binary and goroutines are basically free
+- **SQLite** -- for the boring CRUD stuff (monitors, notifications, check history)
+- **FrostDB** -- for the cool time-series stuff (analytics, charts)
+- **Vue 3 + Tailwind** -- because the frontend needs to look nice
+- **ECharts** -- for the charts that make you feel like you're running a NASA control room
+- **go:embed** -- the entire frontend is baked into the binary. One file to rule them all.
 
 ## License
 
-MIT
+MIT -- do whatever you want with it. If it breaks your production, that's between you and your SLA.
