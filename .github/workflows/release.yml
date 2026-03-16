@@ -1,0 +1,123 @@
+name: Build & Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - goos: linux
+            goarch: amd64
+          - goos: linux
+            goarch: arm64
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Build frontend
+        run: |
+          cd frontend
+          npm ci
+          npm run build
+
+      - name: Build binary
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: 0
+        run: |
+          go build -ldflags "-s -w" -o go-http-monitor .
+
+      - name: Prepare package tree
+        run: |
+          PKG=pkg-root
+          mkdir -p $PKG/usr/local/bin
+          mkdir -p $PKG/usr/lib/systemd/system
+          mkdir -p $PKG/usr/share/go-http-monitor
+
+          cp go-http-monitor            $PKG/usr/local/bin/
+          cp deploy/go-http-monitor.service $PKG/usr/lib/systemd/system/
+          cp deploy/env.example         $PKG/usr/share/go-http-monitor/
+
+      - name: Install nFPM
+        run: |
+          go install github.com/goreleaser/nfpm/v2/cmd/nfpm@latest
+
+      - name: Generate nFPM config
+        run: |
+          VERSION=${GITHUB_REF_NAME#v}
+          cat > nfpm.yaml << NFPMEOF
+          name: go-http-monitor
+          arch: "${{ matrix.goarch }}"
+          version: "${VERSION}"
+          maintainer: "menta2k"
+          description: "HTTP URL monitor with REST API, notifications, and embedded web UI"
+          homepage: "https://github.com/menta2k/go-http-monitor"
+          license: "MIT"
+          contents:
+            - src: pkg-root/usr/local/bin/go-http-monitor
+              dst: /usr/local/bin/go-http-monitor
+              file_info:
+                mode: 0755
+            - src: pkg-root/usr/lib/systemd/system/go-http-monitor.service
+              dst: /usr/lib/systemd/system/go-http-monitor.service
+            - src: pkg-root/usr/share/go-http-monitor/env.example
+              dst: /usr/share/go-http-monitor/env.example
+          scripts:
+            postinstall: deploy/postinstall.sh
+            preremove: deploy/preremove.sh
+          NFPMEOF
+
+      - name: Build .deb package
+        run: nfpm package -p deb -t .
+
+      - name: Build .rpm package
+        run: nfpm package -p rpm -t .
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: packages-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: |
+            *.deb
+            *.rpm
+            go-http-monitor
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: List artifacts
+        run: find artifacts -type f | sort
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: |
+            artifacts/**/*.deb
+            artifacts/**/*.rpm
+            artifacts/**/go-http-monitor

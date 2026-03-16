@@ -1,0 +1,30 @@
+[Unit]
+Description=HTTP Monitor Service
+Documentation=https://github.com/menta2k/go-http-monitor
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=go-http-monitor
+Group=go-http-monitor
+ExecStart=/usr/local/bin/go-http-monitor
+WorkingDirectory=/var/lib/go-http-monitor
+Restart=on-failure
+RestartSec=5
+LimitNOFILE=65536
+
+EnvironmentFile=-/etc/go-http-monitor/env
+
+# Security hardening
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/var/lib/go-http-monitor
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectControlGroups=yes
+
+[Install]
+WantedBy=multi-user.target

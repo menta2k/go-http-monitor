@@ -8,7 +8,7 @@ BINARY     := $(BUILD_DIR)/$(APP_NAME)
 GOFLAGS    ?=
 LDFLAGS    ?= -s -w
 
-.PHONY: all build clean frontend frontend-install frontend-clean backend run dev test lint help
+.PHONY: all build clean frontend frontend-install frontend-clean backend run dev test lint install uninstall help
 
 ## all: Build everything (frontend + backend) into a single binary
 all: build
@@ -54,11 +54,26 @@ dev:
 
 ## test: Run Go tests
 test:
-	$(GO) test ./auth/... ./checker/... ./config/... ./database/... ./domain/... ./monitor/... ./result/... ./response/...
+	$(GO) test ./auth/... ./checker/... ./config/... ./database/... ./domain/... ./monitor/... ./notification/... ./notifier/... ./result/... ./response/...
 
 ## lint: Run go vet
 lint:
-	$(GO) vet ./auth/... ./checker/... ./config/... ./database/... ./domain/... ./monitor/... ./result/... ./response/...
+	$(GO) vet ./auth/... ./checker/... ./config/... ./database/... ./domain/... ./monitor/... ./notification/... ./notifier/... ./result/... ./response/...
+
+## install: Install binary and systemd service (run as root)
+install: build
+	install -m 755 $(BINARY) /usr/local/bin/$(APP_NAME)
+	install -m 644 deploy/go-http-monitor.service /usr/lib/systemd/system/
+	mkdir -p /usr/share/$(APP_NAME)
+	install -m 644 deploy/env.example /usr/share/$(APP_NAME)/
+	bash deploy/postinstall.sh
+
+## uninstall: Remove binary and systemd service (run as root)
+uninstall:
+	bash deploy/preremove.sh
+	rm -f /usr/local/bin/$(APP_NAME)
+	rm -f /usr/lib/systemd/system/go-http-monitor.service
+	systemctl daemon-reload
 
 ## help: Show this help
 help:
