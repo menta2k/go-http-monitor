@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/sko/go-http-monitor/domain"
 	"github.com/sko/go-http-monitor/response"
 )
 
@@ -47,15 +46,12 @@ func (h *Handler) HandleHistory(w http.ResponseWriter, r *http.Request) {
 	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
 	offset, _ := strconv.Atoi(r.URL.Query().Get("offset"))
 
-	results, err := h.service.History(r.Context(), id, limit, offset)
+	page, err := h.service.History(r.Context(), id, limit, offset)
 	if err != nil {
 		response.WriteError(w, http.StatusInternalServerError, "failed to get history")
 		return
 	}
-	if results == nil {
-		results = []domain.CheckResult{}
-	}
-	response.WriteJSON(w, http.StatusOK, results)
+	response.WriteJSON(w, http.StatusOK, page)
 }
 
 func parseID(r *http.Request) (int64, error) {

@@ -74,6 +74,7 @@ export function getMonitorStatus(id) {
 }
 
 export function getMonitorHistory(id, limit = 20, offset = 0) {
+  // Returns { results, total, limit, offset }
   return request(`/api/monitors/${id}/history?limit=${limit}&offset=${offset}`)
 }
 

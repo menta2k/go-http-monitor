@@ -63,6 +63,13 @@ func (r *SQLiteRepository) FindByMonitorID(ctx context.Context, monitorID int64,
 	return results, rows.Err()
 }
 
+func (r *SQLiteRepository) CountByMonitorID(ctx context.Context, monitorID int64) (int64, error) {
+	var count int64
+	err := r.db.QueryRowContext(ctx,
+		`SELECT COUNT(*) FROM check_results WHERE monitor_id = ?`, monitorID).Scan(&count)
+	return count, err
+}
+
 func (r *SQLiteRepository) FindLatestByMonitorID(ctx context.Context, monitorID int64) (domain.CheckResult, error) {
 	row := r.db.QueryRowContext(ctx,
 		`SELECT id, monitor_id, status_code, response_time_ms, body_matched, error, checked_at
