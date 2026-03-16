@@ -112,3 +112,7 @@ export function getMonitorTimeline(id, period = '24h', buckets = 60) {
 export function getMonitorStatusCodes(id, period = '24h') {
   return request(`/api/monitors/${id}/status-codes?period=${period}`)
 }
+
+export function getMonitorStatusCodeTimeline(id, period = '24h', buckets = 60) {
+  return request(`/api/monitors/${id}/status-code-timeline?period=${period}&buckets=${buckets}`)
+}

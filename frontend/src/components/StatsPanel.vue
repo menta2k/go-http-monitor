@@ -1,6 +1,6 @@
 <script setup>
 import { ref, watch, onMounted } from 'vue'
-import { getMonitorStats, getMonitorTimeline, getMonitorStatusCodes } from '../api/client'
+import { getMonitorStats, getMonitorTimeline, getMonitorStatusCodeTimeline } from '../api/client'
 import ResponseTimeChart from './ResponseTimeChart.vue'
 import UptimeChart from './UptimeChart.vue'
 import StatusCodeChart from './StatusCodeChart.vue'
@@ -20,20 +20,20 @@ const periods = [
 
 const summary = ref(null)
 const timeline = ref([])
-const statusCodes = ref([])
+const statusCodeTimeline = ref([])
 const loading = ref(true)
 
 async function fetchStats() {
   loading.value = true
   try {
-    const [s, t, sc] = await Promise.all([
+    const [s, t, sct] = await Promise.all([
       getMonitorStats(props.monitorId, period.value),
       getMonitorTimeline(props.monitorId, period.value, 60),
-      getMonitorStatusCodes(props.monitorId, period.value),
+      getMonitorStatusCodeTimeline(props.monitorId, period.value, 60),
     ])
     summary.value = s
     timeline.value = t
-    statusCodes.value = sc
+    statusCodeTimeline.value = sct
   } catch {
     // ignore
   } finally {
@@ -103,7 +103,7 @@ function fmtMs(v) {
     </div>
 
     <!-- Charts -->
-    <div v-if="!loading" class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+    <div v-if="!loading" class="space-y-4">
       <!-- Response Time -->
       <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
         <h3 class="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">Response Time</h3>
@@ -116,10 +116,10 @@ function fmtMs(v) {
         <UptimeChart :timeline="timeline" />
       </div>
 
-      <!-- Status Code Distribution -->
-      <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 lg:col-span-2">
-        <h3 class="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">HTTP Status Code Distribution</h3>
-        <StatusCodeChart :status-codes="statusCodes" />
+      <!-- Status Code Distribution Over Time -->
+      <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+        <h3 class="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">HTTP Status Codes Over Time</h3>
+        <StatusCodeChart :timeline="statusCodeTimeline" />
       </div>
     </div>
 

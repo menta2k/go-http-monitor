@@ -32,6 +32,11 @@ type StatusCodeBucket struct {
 	Count int64  `json:"count"`
 }
 
+type StatusCodeTimePoint struct {
+	Timestamp int64            `json:"timestamp"`
+	Codes     map[string]int64 `json:"codes"`
+}
+
 type TimePoint struct {
 	Timestamp     int64   `json:"timestamp"`
 	AvgResponseMs float64 `json:"avg_response_ms"`
@@ -154,25 +159,7 @@ func (s *Service) GetStatusCodes(ctx context.Context, monitorID int64, period st
 
 	counts := map[string]int64{}
 	err := scanSamples(ctx, s.store, monitorID, sinceMs, func(sp tsdb.Sample) {
-		var bucket string
-		if sp.HasError == 1 {
-			bucket = "Error"
-		} else {
-			code := sp.StatusCode
-			switch {
-			case code >= 200 && code < 300:
-				bucket = "2xx"
-			case code >= 300 && code < 400:
-				bucket = "3xx"
-			case code >= 400 && code < 500:
-				bucket = "4xx"
-			case code >= 500:
-				bucket = "5xx"
-			default:
-				bucket = "Error"
-			}
-		}
-		counts[bucket]++
+		counts[statusCodeBucket(sp)]++
 	})
 	if err != nil {
 		return nil, err
@@ -190,6 +177,68 @@ func (s *Service) GetStatusCodes(ctx context.Context, monitorID int64, period st
 		return []StatusCodeBucket{}, nil
 	}
 	return result, nil
+}
+
+func (s *Service) GetStatusCodeTimeline(ctx context.Context, monitorID int64, period string, buckets int) ([]StatusCodeTimePoint, error) {
+	since := periodToTime(period)
+	sinceMs := since.UnixMilli()
+	nowMs := time.Now().UnixMilli()
+
+	if buckets <= 0 || buckets > 200 {
+		buckets = 60
+	}
+
+	var samples []tsdb.Sample
+	err := scanSamples(ctx, s.store, monitorID, sinceMs, func(sp tsdb.Sample) {
+		samples = append(samples, sp)
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	bucketSize := (nowMs - sinceMs) / int64(buckets)
+	if bucketSize <= 0 {
+		bucketSize = 1
+	}
+
+	points := make([]StatusCodeTimePoint, buckets)
+	for i := range points {
+		points[i].Timestamp = sinceMs + int64(i)*bucketSize + bucketSize/2
+		points[i].Codes = map[string]int64{}
+	}
+
+	for _, sp := range samples {
+		idx := int((sp.Timestamp - sinceMs) / bucketSize)
+		if idx < 0 {
+			idx = 0
+		}
+		if idx >= buckets {
+			idx = buckets - 1
+		}
+
+		bucket := statusCodeBucket(sp)
+		points[idx].Codes[bucket]++
+	}
+
+	return points, nil
+}
+
+func statusCodeBucket(sp tsdb.Sample) string {
+	if sp.HasError == 1 {
+		return "Error"
+	}
+	switch {
+	case sp.StatusCode >= 200 && sp.StatusCode < 300:
+		return "2xx"
+	case sp.StatusCode >= 300 && sp.StatusCode < 400:
+		return "3xx"
+	case sp.StatusCode >= 400 && sp.StatusCode < 500:
+		return "4xx"
+	case sp.StatusCode >= 500:
+		return "5xx"
+	default:
+		return "Error"
+	}
 }
 
 func scanSamples(ctx context.Context, store *tsdb.Store, monitorID, sinceMs int64, fn func(tsdb.Sample)) error {

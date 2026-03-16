@@ -71,3 +71,23 @@ func (h *Handler) HandleStatusCodes(w http.ResponseWriter, r *http.Request) {
 	}
 	response.WriteJSON(w, http.StatusOK, codes)
 }
+
+func (h *Handler) HandleStatusCodeTimeline(w http.ResponseWriter, r *http.Request) {
+	monitorID, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		response.WriteError(w, http.StatusBadRequest, "invalid monitor id")
+		return
+	}
+
+	period := ParsePeriod(r.URL.Query().Get("period"))
+	buckets, _ := strconv.Atoi(r.URL.Query().Get("buckets"))
+	buckets = ParseBuckets(buckets)
+
+	points, err := h.service.GetStatusCodeTimeline(r.Context(), monitorID, period, buckets)
+	if err != nil {
+		log.Printf("[stats] status code timeline error for monitor %d: %v", monitorID, err)
+		response.WriteError(w, http.StatusInternalServerError, "failed to get status code timeline")
+		return
+	}
+	response.WriteJSON(w, http.StatusOK, points)
+}
