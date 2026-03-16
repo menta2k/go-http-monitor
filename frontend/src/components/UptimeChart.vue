@@ -33,12 +33,19 @@ const option = computed(() => {
         return `${t}<br/>Healthy: <b style="color:#10b981">${ok.data[1]}</b><br/>Failed: <b style="color:#ef4444">${fail.data[1]}</b>`
       },
     },
-    grid: { left: 50, right: 16, top: 12, bottom: 40 },
+    grid: { left: 50, right: 16, top: 12, bottom: 50 },
     xAxis: {
       type: 'time',
-      axisLabel: { color: textColor, fontSize: 11 },
+      axisLabel: {
+        color: textColor,
+        fontSize: 10,
+        hideOverlap: true,
+        rotate: 30,
+        formatter: '{HH}:{mm}',
+      },
       axisLine: { lineStyle: { color: lineColor } },
       splitLine: { show: false },
+      splitNumber: 5,
     },
     yAxis: {
       type: 'value',

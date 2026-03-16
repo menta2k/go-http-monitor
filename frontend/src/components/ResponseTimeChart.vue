@@ -32,12 +32,19 @@ const option = computed(() => {
         return `${t}<br/>Avg: <b>${p.data[1].toFixed(1)}ms</b>`
       },
     },
-    grid: { left: 50, right: 16, top: 12, bottom: 40 },
+    grid: { left: 50, right: 16, top: 12, bottom: 50 },
     xAxis: {
       type: 'time',
-      axisLabel: { color: textColor, fontSize: 11 },
+      axisLabel: {
+        color: textColor,
+        fontSize: 10,
+        hideOverlap: true,
+        rotate: 30,
+        formatter: '{HH}:{mm}',
+      },
       axisLine: { lineStyle: { color: lineColor } },
       splitLine: { show: false },
+      splitNumber: 5,
     },
     yAxis: {
       type: 'value',
