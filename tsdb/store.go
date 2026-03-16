@@ -22,6 +22,8 @@ type Store struct {
 func Open(storagePath string) (*Store, error) {
 	opts := []frostdb.Option{
 		frostdb.WithActiveMemorySize(64 * 1024 * 1024), // 64MB
+		frostdb.WithWAL(),
+		frostdb.WithSnapshotTriggerSize(16 * 1024 * 1024), // snapshot every 16MB of uncompressed writes
 	}
 	if storagePath != "" {
 		opts = append(opts, frostdb.WithStoragePath(storagePath))
@@ -47,7 +49,7 @@ func Open(storagePath string) (*Store, error) {
 		return nil, fmt.Errorf("create frostdb table: %w", err)
 	}
 
-	log.Printf("frostdb opened (path: %s)", storagePath)
+	log.Printf("frostdb opened (path: %s, WAL enabled)", storagePath)
 	return &Store{
 		columnStore: cs,
 		db:          db,
@@ -76,6 +78,10 @@ func (s *Store) GenericTable() *frostdb.GenericTable[Sample] {
 }
 
 func (s *Store) Close() error {
+	// Snapshot before closing to persist all in-memory data
+	if err := s.db.Snapshot(context.Background()); err != nil {
+		log.Printf("frostdb snapshot on close failed: %v", err)
+	}
 	return s.columnStore.Close()
 }
 
