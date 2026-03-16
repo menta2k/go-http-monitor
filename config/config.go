@@ -14,6 +14,7 @@ type Config struct {
 	JWTTokenTTLHours  int
 	AdminUsername     string
 	AdminPassword     string
+	TSDBPath         string
 	SMTPHost         string
 	SMTPPort         int
 	SMTPFrom         string
@@ -31,6 +32,7 @@ func Load() Config {
 		JWTTokenTTLHours:  envInt("JWT_TOKEN_TTL_HOURS", 24),
 		AdminUsername:     envStr("ADMIN_USERNAME", "admin"),
 		AdminPassword:     envStr("ADMIN_PASSWORD", ""),
+		TSDBPath:          envStr("TSDB_PATH", "./tsdb-data"),
 		SMTPHost:          envStr("SMTP_HOST", ""),
 		SMTPPort:          envInt("SMTP_PORT", 587),
 		SMTPFrom:          envStr("SMTP_FROM", ""),

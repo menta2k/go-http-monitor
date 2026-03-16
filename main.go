@@ -20,6 +20,8 @@ import (
 	"github.com/sko/go-http-monitor/notification"
 	"github.com/sko/go-http-monitor/notifier"
 	"github.com/sko/go-http-monitor/result"
+	"github.com/sko/go-http-monitor/stats"
+	"github.com/sko/go-http-monitor/tsdb"
 )
 
 func main() {
@@ -38,6 +40,13 @@ func main() {
 	}
 	defer db.Close()
 
+	// FrostDB for time-series analytics
+	tsStore, err := tsdb.Open(cfg.TSDBPath)
+	if err != nil {
+		log.Fatalf("failed to open tsdb: %v", err)
+	}
+	defer tsStore.Close()
+
 	// Auth
 	users := map[string]string{
 		cfg.AdminUsername: cfg.AdminPassword,
@@ -54,6 +63,7 @@ func main() {
 	monitorSvc := monitor.NewService(monitorRepo)
 	resultSvc := result.NewService(resultRepo)
 	notifSvc := notification.NewService(notifRepo)
+	statsSvc := stats.NewService(tsStore)
 
 	// Notifier senders
 	httpClient := &http.Client{
@@ -75,7 +85,7 @@ func main() {
 	alerter := notifier.New(notifRepo, resultRepo, senders)
 
 	// Scheduler
-	scheduler := checker.NewScheduler(httpClient, resultRepo, alerter.Notify)
+	scheduler := checker.NewScheduler(httpClient, resultRepo, tsStore, alerter.Notify)
 
 	syncScheduler := func() {
 		monitors, err := monitorSvc.List(context.Background())
@@ -90,6 +100,7 @@ func main() {
 	monitorHandler := monitor.NewHandler(monitorSvc, syncScheduler)
 	resultHandler := result.NewHandler(resultSvc)
 	notifHandler := notification.NewHandler(notifSvc)
+	statsHandler := stats.NewHandler(statsSvc)
 
 	// API mux
 	apiMux := http.NewServeMux()
@@ -97,6 +108,7 @@ func main() {
 	monitor.RegisterRoutes(apiMux, monitorHandler)
 	result.RegisterRoutes(apiMux, resultHandler)
 	notification.RegisterRoutes(apiMux, notifHandler)
+	stats.RegisterRoutes(apiMux, statsHandler)
 
 	// JWT middleware
 	jwtMiddleware := auth.RequireAuth(authSvc)

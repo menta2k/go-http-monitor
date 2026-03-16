@@ -11,6 +11,7 @@ bin/
 
 # Database
 *.db
+tsdb-data/
 *.db-shm
 *.db-wal
 *.db-journal

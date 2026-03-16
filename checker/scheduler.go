@@ -8,20 +8,23 @@ import (
 
 	"github.com/sko/go-http-monitor/domain"
 	"github.com/sko/go-http-monitor/result"
+	"github.com/sko/go-http-monitor/tsdb"
 )
 
 type Scheduler struct {
 	client     *http.Client
 	resultRepo result.Repository
+	tsStore    *tsdb.Store
 	alert      AlertFunc
 	mu         sync.Mutex
 	workers    map[int64]context.CancelFunc
 }
 
-func NewScheduler(client *http.Client, resultRepo result.Repository, alert AlertFunc) *Scheduler {
+func NewScheduler(client *http.Client, resultRepo result.Repository, tsStore *tsdb.Store, alert AlertFunc) *Scheduler {
 	return &Scheduler{
 		client:     client,
 		resultRepo: resultRepo,
+		tsStore:    tsStore,
 		alert:      alert,
 		workers:    make(map[int64]context.CancelFunc),
 	}
@@ -84,5 +87,5 @@ func (s *Scheduler) StopAll() {
 func (s *Scheduler) startLocked(m domain.Monitor) {
 	ctx, cancel := context.WithCancel(context.Background())
 	s.workers[m.ID] = cancel
-	go RunWorker(ctx, s.client, m, s.resultRepo, s.alert)
+	go RunWorker(ctx, s.client, m, s.resultRepo, s.tsStore, s.alert)
 }
