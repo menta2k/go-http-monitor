@@ -1,6 +1,6 @@
 <script setup>
 import { ref, watch, onMounted } from 'vue'
-import { getMonitorStats, getMonitorTimeline, getMonitorHistory } from '../api/client'
+import { getMonitorStats, getMonitorTimeline, getMonitorStatusCodes } from '../api/client'
 import ResponseTimeChart from './ResponseTimeChart.vue'
 import UptimeChart from './UptimeChart.vue'
 import StatusCodeChart from './StatusCodeChart.vue'
@@ -20,20 +20,20 @@ const periods = [
 
 const summary = ref(null)
 const timeline = ref([])
-const history = ref([])
+const statusCodes = ref([])
 const loading = ref(true)
 
 async function fetchStats() {
   loading.value = true
   try {
-    const [s, t, h] = await Promise.all([
+    const [s, t, sc] = await Promise.all([
       getMonitorStats(props.monitorId, period.value),
       getMonitorTimeline(props.monitorId, period.value, 60),
-      getMonitorHistory(props.monitorId, 100),
+      getMonitorStatusCodes(props.monitorId, period.value),
     ])
     summary.value = s
     timeline.value = t
-    history.value = h
+    statusCodes.value = sc
   } catch {
     // ignore
   } finally {
@@ -119,7 +119,7 @@ function fmtMs(v) {
       <!-- Status Code Distribution -->
       <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 lg:col-span-2">
         <h3 class="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">HTTP Status Code Distribution</h3>
-        <StatusCodeChart :history="history" />
+        <StatusCodeChart :status-codes="statusCodes" />
       </div>
     </div>
 

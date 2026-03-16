@@ -27,6 +27,11 @@ type Summary struct {
 	P95ResponseMs int64   `json:"p95_response_ms"`
 }
 
+type StatusCodeBucket struct {
+	Code  string `json:"code"`
+	Count int64  `json:"count"`
+}
+
 type TimePoint struct {
 	Timestamp     int64   `json:"timestamp"`
 	AvgResponseMs float64 `json:"avg_response_ms"`
@@ -141,6 +146,50 @@ func (s *Service) GetTimeline(ctx context.Context, monitorID int64, period strin
 	}
 
 	return points, nil
+}
+
+func (s *Service) GetStatusCodes(ctx context.Context, monitorID int64, period string) ([]StatusCodeBucket, error) {
+	since := periodToTime(period)
+	sinceMs := since.UnixMilli()
+
+	counts := map[string]int64{}
+	err := scanSamples(ctx, s.store, monitorID, sinceMs, func(sp tsdb.Sample) {
+		var bucket string
+		if sp.HasError == 1 {
+			bucket = "Error"
+		} else {
+			code := sp.StatusCode
+			switch {
+			case code >= 200 && code < 300:
+				bucket = "2xx"
+			case code >= 300 && code < 400:
+				bucket = "3xx"
+			case code >= 400 && code < 500:
+				bucket = "4xx"
+			case code >= 500:
+				bucket = "5xx"
+			default:
+				bucket = "Error"
+			}
+		}
+		counts[bucket]++
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	// Return in a stable order
+	order := []string{"2xx", "3xx", "4xx", "5xx", "Error"}
+	var result []StatusCodeBucket
+	for _, code := range order {
+		if c, ok := counts[code]; ok {
+			result = append(result, StatusCodeBucket{Code: code, Count: c})
+		}
+	}
+	if len(result) == 0 {
+		return []StatusCodeBucket{}, nil
+	}
+	return result, nil
 }
 
 func scanSamples(ctx context.Context, store *tsdb.Store, monitorID, sinceMs int64, fn func(tsdb.Sample)) error {
