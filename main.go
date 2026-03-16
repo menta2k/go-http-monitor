@@ -13,6 +13,7 @@ import (
 
 	"github.com/sko/go-http-monitor/auth"
 	"github.com/sko/go-http-monitor/checker"
+	"github.com/sko/go-http-monitor/housekeeper"
 	"github.com/sko/go-http-monitor/config"
 	"github.com/sko/go-http-monitor/database"
 	"github.com/sko/go-http-monitor/domain"
@@ -125,6 +126,11 @@ func main() {
 
 	mux.Handle("/", frontendHandler())
 
+	// Housekeeper
+	hk := housekeeper.New(db, time.Duration(cfg.HousekeepIntervalMin)*time.Minute, cfg.HousekeepRetentionDays)
+	hkCtx, hkCancel := context.WithCancel(context.Background())
+	go hk.Run(hkCtx)
+
 	// Initial sync
 	syncScheduler()
 
@@ -151,6 +157,7 @@ func main() {
 	<-quit
 
 	log.Println("shutting down...")
+	hkCancel()
 	scheduler.StopAll()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
