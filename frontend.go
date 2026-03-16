@@ -6,7 +6,7 @@ import (
 	"net/http"
 )
 
-//go:embed frontend/dist/*
+//go:embed all:frontend/dist
 var frontendFS embed.FS
 
 func frontendHandler() http.Handler {

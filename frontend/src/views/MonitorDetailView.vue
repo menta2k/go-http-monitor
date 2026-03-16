@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { getMonitor, getMonitorStatus, getMonitorHistory, deleteMonitor } from '../api/client'
 import StatusBadge from '../components/StatusBadge.vue'
 import NotificationList from '../components/NotificationList.vue'
+import StatsPanel from '../components/StatsPanel.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -133,6 +134,9 @@ function statusClass(result) {
           </div>
         </div>
       </div>
+
+      <!-- Analytics -->
+      <StatsPanel :monitor-id="id" class="mb-6" />
 
       <!-- Notifications -->
       <NotificationList :monitor-id="id" class="mb-6" />

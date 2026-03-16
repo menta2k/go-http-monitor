@@ -100,3 +100,11 @@ export function deleteNotification(id) {
     method: 'DELETE',
   })
 }
+
+export function getMonitorStats(id, period = '24h') {
+  return request(`/api/monitors/${id}/stats?period=${period}`)
+}
+
+export function getMonitorTimeline(id, period = '24h', buckets = 60) {
+  return request(`/api/monitors/${id}/timeline?period=${period}&buckets=${buckets}`)
+}
