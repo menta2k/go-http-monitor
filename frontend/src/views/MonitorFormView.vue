@@ -15,6 +15,7 @@ const form = ref({
   expected_status: 200,
   body_contains: '',
   interval_seconds: 60,
+  user_agent: '',
 })
 const error = ref('')
 const loading = ref(false)
@@ -28,6 +29,7 @@ onMounted(async () => {
         expected_status: m.expected_status,
         body_contains: m.body_contains,
         interval_seconds: m.interval_seconds,
+        user_agent: m.user_agent || '',
       }
     } catch (e) {
       error.value = e.message
@@ -121,6 +123,21 @@ async function handleSubmit() {
           class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent placeholder-gray-400 dark:placeholder-gray-500"
         />
         <p class="mt-1 text-xs text-gray-400 dark:text-gray-500">Leave empty to skip body content check</p>
+      </div>
+
+      <div>
+        <label for="user_agent" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+          User-Agent
+          <span class="font-normal text-gray-400 dark:text-gray-500">(optional)</span>
+        </label>
+        <input
+          id="user_agent"
+          v-model="form.user_agent"
+          type="text"
+          placeholder="Mozilla/5.0 (compatible; GoHttpMonitor/1.0)"
+          class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent placeholder-gray-400 dark:placeholder-gray-500"
+        />
+        <p class="mt-1 text-xs text-gray-400 dark:text-gray-500">Leave empty to use Go default User-Agent</p>
       </div>
 
       <div class="flex items-center gap-3 pt-2">

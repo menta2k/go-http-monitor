@@ -24,6 +24,10 @@ func Check(ctx context.Context, client *http.Client, m domain.Monitor) domain.Ch
 		}
 	}
 
+	if m.UserAgent != "" {
+		req.Header.Set("User-Agent", m.UserAgent)
+	}
+
 	start := time.Now()
 	resp, err := client.Do(req)
 	elapsed := time.Since(start).Milliseconds()

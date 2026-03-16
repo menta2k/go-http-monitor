@@ -12,11 +12,12 @@ type Monitor struct {
 	ExpectedStatus  int       `json:"expected_status"`
 	BodyContains    string    `json:"body_contains"`
 	IntervalSeconds int       `json:"interval_seconds"`
+	UserAgent       string    `json:"user_agent"`
 	CreatedAt       time.Time `json:"created_at"`
 	UpdatedAt       time.Time `json:"updated_at"`
 }
 
-func NewMonitor(rawURL string, expectedStatus int, bodyContains string, intervalSeconds int) (Monitor, error) {
+func NewMonitor(rawURL string, expectedStatus int, bodyContains string, intervalSeconds int, userAgent string) (Monitor, error) {
 	if rawURL == "" {
 		return Monitor{}, ErrInvalidURL
 	}
@@ -40,6 +41,7 @@ func NewMonitor(rawURL string, expectedStatus int, bodyContains string, interval
 		ExpectedStatus:  expectedStatus,
 		BodyContains:    bodyContains,
 		IntervalSeconds: intervalSeconds,
+		UserAgent:       userAgent,
 		CreatedAt:       now,
 		UpdatedAt:       now,
 	}, nil

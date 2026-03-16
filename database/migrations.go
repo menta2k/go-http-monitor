@@ -1,6 +1,9 @@
 package database
 
-import "database/sql"
+import (
+	"database/sql"
+	"strings"
+)
 
 func Migrate(db *sql.DB) error {
 	queries := []string{
@@ -35,12 +38,19 @@ func Migrate(db *sql.DB) error {
 		)`,
 		`CREATE INDEX IF NOT EXISTS idx_notifications_monitor
 			ON notifications(monitor_id)`,
+		// Incremental migrations
+		`ALTER TABLE monitors ADD COLUMN user_agent TEXT NOT NULL DEFAULT ''`,
 	}
 
 	for _, q := range queries {
-		if _, err := db.Exec(q); err != nil {
+		_, err := db.Exec(q)
+		if err != nil && !isDuplicateColumnError(err) {
 			return err
 		}
 	}
 	return nil
+}
+
+func isDuplicateColumnError(err error) bool {
+	return strings.Contains(err.Error(), "duplicate column")
 }
